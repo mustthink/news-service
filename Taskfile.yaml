@@ -1,0 +1,24 @@
+version: '3'
+
+tasks:
+  migrate:
+    aliases:
+      - migrations
+    desc: "Migrations to db"
+    cmd: "go run ./cmd/migrations -storage-path=postgres://user:pass@localhost:5432/default -migrations-path=./migrations"
+  run:
+    desc: "Run application"
+    cmd: "go run ./cmd/news-service -config=./config/local.yaml"
+  tests:
+    desc: "Test application"
+    # for integration tests run service first
+    cmds: ["go test ./... -coverprofile=coverage.out", "go tool cover -html=coverage.out"]
+  docker-postgres:
+    desc: "Run postgres in docker"
+    cmds: ["docker-compose up postgres"]
+  docker:
+    desc: "Run services in docker"
+    cmds: ["docker-compose up migrations", "docker-compose up news"]
+  docker-test:
+    desc: "Run tests in docker"
+    cmds: ["docker-compose up tests"]

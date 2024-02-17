@@ -1,0 +1,31 @@
+version: "3.8"
+services:
+  migrations:
+    build:
+      context: .
+      dockerfile: Dockerfile-Migrations
+    depends_on:
+        - postgres
+  news:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+        - "8080:8080"
+    depends_on:
+        - postgres
+  postgres:
+    image: postgres:16
+    environment:
+        POSTGRES_USER: "user"
+        POSTGRES_PASSWORD: "pass"
+        POSTGRES_DB: "default"
+    ports:
+        - "5432:5432"
+  tests:
+    build:
+      context: .
+      dockerfile: Dockerfile-Testing
+    depends_on:
+        - postgres
+        - news

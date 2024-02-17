@@ -1,0 +1,10 @@
+env: local
+server:
+  host: localhost
+  port: 8080
+db:
+  user: user
+  pass: pass
+  host: postgres
+  port: 5432
+  db: default
