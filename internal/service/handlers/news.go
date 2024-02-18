@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
+	errorsBasic "errors"
 	"io"
 	"net/http"
 	"strconv"
@@ -10,6 +10,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
 
+	"github.com/mustthink/news-service/internal/errors"
 	"github.com/mustthink/news-service/internal/models"
 )
 
@@ -41,7 +42,7 @@ func getNews(storage NewsProvider, id uint) (interface{}, error) {
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("couldn't get news from storage w err: %w", err)
+		return nil, errors.NewErrWithStatusf(http.StatusInternalServerError, "couldn't get news from storage w err: %w", err)
 	}
 	return news, nil
 }
@@ -73,20 +74,20 @@ type NewsSaver interface {
 
 func postNews(storage NewsSaver, news *models.News) (interface{}, error) {
 	if err := news.Validate(); err != nil {
-		return nil, fmt.Errorf("couldn't validate news w err: %w", err)
+		return nil, errors.NewErrWithStatusf(http.StatusBadRequest, "news validation failed: %w", err)
 	}
 
 	exist, err := storage.IsNewsExist(news)
 	if err != nil {
-		return nil, fmt.Errorf("couldn't check news")
+		return nil, errors.NewErrWithStatusf(http.StatusInternalServerError, "couldn't check if news exist w err: %w", err)
 	}
 	if exist {
-		return nil, fmt.Errorf("news exist")
+		return nil, errors.NewErrWithStatusf(http.StatusConflict, "news already exist")
 	}
 
 	id, err := storage.CreateNews(news)
 	if err != nil {
-		return nil, fmt.Errorf("couldn't create news w err: %w", err)
+		return nil, errors.NewErrWithStatusf(http.StatusInternalServerError, "couldn't create news w err: %w", err)
 	}
 
 	return struct {
@@ -99,7 +100,10 @@ func postNews(storage NewsSaver, news *models.News) (interface{}, error) {
 func putNews(storage NewsSaver, news *models.News, id uint) (interface{}, error) {
 	success, err := storage.UpdateNews(news, id)
 	if err != nil {
-		return nil, fmt.Errorf("couldn't update news w err: %w", err)
+		return nil, errors.NewErrWithStatusf(http.StatusInternalServerError, "couldn't update news w err: %w", err)
+	}
+	if !success {
+		return nil, errors.NewErrWithStatusf(http.StatusNotFound, "news w id: %d not found", id)
 	}
 
 	return struct {
@@ -122,7 +126,10 @@ type NewsRemover interface {
 func deleteNews(storage NewsRemover, id uint) (interface{}, error) {
 	success, err := storage.DeleteNews(id)
 	if err != nil {
-		return nil, fmt.Errorf("couldn't delete news w err: %w", err)
+		return nil, errors.NewErrWithStatusf(http.StatusInternalServerError, "couldn't delete news w err: %w", err)
+	}
+	if !success {
+		return nil, errors.NewErrWithStatusf(http.StatusNotFound, "news with id: %d not found", id)
 	}
 
 	return struct {
@@ -150,9 +157,11 @@ func News(storage Storage, log *logrus.Entry) http.HandlerFunc {
 		)
 		switch request.Method {
 		case http.MethodGet:
+			log.Debugf("handling GET request for news with id: %d", id)
 			response, err = getNews(storage, uint(id))
 
 		case http.MethodDelete:
+			log.Debugf("handling DELETE request for news with id: %d", id)
 			response, err = deleteNews(storage, uint(id))
 
 		case http.MethodPost, http.MethodPut:
@@ -169,18 +178,24 @@ func News(storage Storage, log *logrus.Entry) http.HandlerFunc {
 			}
 
 			if request.Method == http.MethodPost {
+				log.Debugf("handling POST request for news: %+v", news)
 				response, err = postNews(storage, &news)
 			} else {
+				log.Debugf("handling PUT request for news with id: %d, news: %+v", id, news)
 				response, err = putNews(storage, &news, uint(id))
 			}
-
-		default:
-			writer.WriteHeader(http.StatusBadRequest)
 		}
 
 		if err != nil {
 			log.Errorf("error handling request: %s", err.Error())
-			writer.WriteHeader(http.StatusInternalServerError)
+
+			var errStatus errors.ErrWithStatus
+			if errorsBasic.As(err, &errStatus) {
+				writer.WriteHeader(errStatus.Status())
+			} else {
+				writer.WriteHeader(http.StatusInternalServerError)
+			}
+
 			return
 		}
 
