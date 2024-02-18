@@ -3,6 +3,7 @@ package tests
 import (
 	"bytes"
 	"net/http"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -12,19 +13,15 @@ import (
 const (
 	// postsEndpoint is the endpoint for the news service.
 	postsEndpoint = "/posts"
-
-	// localURL is the base url for the server. For local testing
-	localURL = "http://localhost:8080"
-
-	// dockerURL is the base url for the server. For docker testing.
-	dockerURL = "http://news:8080"
-
-	// setURL is a URL that will be used for testing. Change this to localURL or dockerURL to test locally or in docker.
-	setURL = localURL
 )
 
 // TestIntegrationWithOrder is a test function. Order of cases is important for this test.
 func TestIntegrationWithOrder(t *testing.T) {
+	var setURL = os.Getenv("SET_URL")
+	if setURL == "" {
+		setURL = "http://localhost:8080"
+	}
+
 	tests := []struct {
 		name       string
 		endpoint   string
