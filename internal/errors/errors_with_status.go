@@ -7,11 +7,11 @@ type ErrWithStatus struct {
 	err    error
 }
 
-func (e *ErrWithStatus) Error() string {
+func (e ErrWithStatus) Error() string {
 	return e.err.Error()
 }
 
-func (e *ErrWithStatus) Status() int {
+func (e ErrWithStatus) Status() int {
 	return e.status
 }
 

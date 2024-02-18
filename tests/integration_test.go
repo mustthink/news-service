@@ -15,13 +15,18 @@ const (
 	postsEndpoint = "/posts"
 )
 
-// TestIntegrationWithOrder is a test function. Order of cases is important for this test.
-func TestIntegrationWithOrder(t *testing.T) {
-	var setURL = os.Getenv("SET_URL")
-	if setURL == "" {
-		setURL = "http://localhost:8080"
-	}
+var URL string
 
+func init() {
+	URL = os.Getenv("SET_URL")
+	if URL == "" {
+		URL = "http://localhost:8080"
+	}
+}
+
+// TestIntegrationWithOrder is a test function. Order of cases is important for this test.
+// Test cases only with valid requests
+func TestIntegrationWithOrder(t *testing.T) {
 	tests := []struct {
 		name       string
 		endpoint   string
@@ -29,6 +34,7 @@ func TestIntegrationWithOrder(t *testing.T) {
 		body       []byte
 		wantStatus int
 	}{
+		// Valid requests
 		{
 			name:     "Post news",
 			endpoint: postsEndpoint,
@@ -73,11 +79,31 @@ func TestIntegrationWithOrder(t *testing.T) {
 			method:     http.MethodDelete,
 			wantStatus: http.StatusOK,
 		},
+
+		// Invalid requests
+		{
+			name:       "Delete news with invalid id",
+			endpoint:   postsEndpoint + "/-1",
+			method:     http.MethodGet,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "Update with invalid id",
+			endpoint:   postsEndpoint + "/1",
+			method:     http.MethodPut,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "Get news with invalid id",
+			endpoint:   postsEndpoint + "/-1",
+			method:     http.MethodDelete,
+			wantStatus: http.StatusBadRequest,
+		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			req, err := http.NewRequest(test.method, setURL+test.endpoint, bytes.NewReader(test.body))
+			req, err := http.NewRequest(test.method, URL+test.endpoint, bytes.NewReader(test.body))
 			require.NoError(t, err)
 
 			resp, err := http.DefaultClient.Do(req)

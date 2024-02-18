@@ -150,6 +150,11 @@ func News(storage Storage, log *logrus.Entry) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		rawID := mux.Vars(request)["id"]
 		id, _ := strconv.Atoi(rawID)
+		if id < 0 {
+			log.Errorf("handling request with invalid id: %d", id)
+			writer.WriteHeader(http.StatusBadRequest)
+			return
+		}
 
 		var (
 			response interface{}
